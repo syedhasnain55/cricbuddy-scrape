@@ -56,11 +56,15 @@ const fetchUpcomingMatches = async () => {
 
     $(".cb-col-100.cb-col.cb-schdl").each((index, element) => {
       const matchDetails = $(element);
-      const title = matchDetails.find(".cb-col.cb-col-100.cb-lv-scrs-crd.cb-pos-rel").text().trim();
+      const title = matchDetails
+        .find(".cb-col.cb-col-100.cb-lv-scrs-crd.cb-pos-rel")
+        .text()
+        .trim();
       const date = matchDetails.find(".cb-col.cb-col-25.cb-lv-scrs-gray").text().trim();
+      const venue = matchDetails.find(".cb-col.cb-col-50.cb-lv-scrs-col").text().trim(); //added venue
 
       if (title && date) {
-        matches.push({ title, date });
+        matches.push({ title, date, venue }); // Added venue to the results
       }
     });
 
@@ -73,7 +77,9 @@ const fetchUpcomingMatches = async () => {
 
 // 📌 API Routes
 app.get("/", (req, res) => {
-  res.send("Welcome to CricBuddy Live Match API! Use /live-matches or /upcoming-matches to get match data.");
+  res.send(
+    "Welcome to CricBuddy Live Match API! Use /live-matches or /upcoming-matches to get match data."
+  );
 });
 
 app.get("/live-matches", async (req, res) => {
