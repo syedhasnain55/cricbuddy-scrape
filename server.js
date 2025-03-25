@@ -1,28 +1,20 @@
 import express from "express";
-import cors from "cors";
 import axios from "axios";
 import * as cheerio from "cheerio";
+import cors from "cors";
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+const liveUrl = "https://www.cricbuzz.com/cricket-match/live-scores";
+const upcomingUrl = "https://www.cricbuzz.com/cricket-schedule/upcoming-series";
 
-app.use(cors()); // ✅ Allow CORS
+// Middleware
+app.use(cors());
 
-app.get("/", (req, res) => {
-  res.send("Welcome to CricBuddy Live Match API! Use /live-matches to get match data.");
-});
-
-app.get("/live-matches", async (req, res) => {
+// 🏏 Fetch Live Matches
+const fetchLiveMatches = async () => {
   try {
-    const url = "https://www.cricbuzz.com/cricket-match/live-scores";
-    const { data } = await axios.get(url, {
-      headers: {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:110.0) Gecko/20100101 Firefox/110.0",
-        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
-        "Accept-Language": "en-US,en;q=0.5",
-      },
-    });
-
+    const { data } = await axios.get(liveUrl);
     const $ = cheerio.load(data);
     let matches = [];
 
@@ -34,31 +26,65 @@ app.get("/live-matches", async (req, res) => {
 
       const team1 = scoreParts[0]?.match(/^[A-Z]+/)?.[0] || "N/A";
       const score1 = scoreParts[0]?.replace(/^[A-Z]+/, "").trim() || "N/A";
-
       const team2 = scoreParts[1]?.match(/^[A-Z]+/)?.[0] || "N/A";
       const score2 = scoreParts[1]?.replace(/^[A-Z]+/, "").trim() || "N/A";
 
-      const status = matchDetails.find(".cb-text-complete").text().trim() || 
-                    matchDetails.find(".cb-text-live").text().trim() ||
-                    matchDetails.find(".cb-text-preview").text().trim();
+      const status =
+        matchDetails.find(".cb-text-complete").text().trim() ||
+        matchDetails.find(".cb-text-live").text().trim() ||
+        matchDetails.find(".cb-text-preview").text().trim() ||
+        "Upcoming";
 
-      if (title && team1 && team2) {
-        matches.push({
-          title,
-          team1,
-          score1,
-          team2,
-          score2,
-          status: status || "Match Not Started",
-        });
+      if (title) {
+        matches.push({ title, team1, score1, team2, score2, status });
       }
     });
 
-    res.json({ matches });
+    return matches;
   } catch (error) {
-    console.error("❌ Error fetching data:", error.message);
-    res.status(500).json({ error: "Failed to fetch live matches" });
+    console.error("Error fetching live matches:", error.message);
+    return [];
   }
+};
+
+// 📅 Fetch Upcoming Matches
+const fetchUpcomingMatches = async () => {
+  try {
+    const { data } = await axios.get(upcomingUrl);
+    const $ = cheerio.load(data);
+    let matches = [];
+
+    $(".cb-col-100.cb-col.cb-schdl").each((index, element) => {
+      const matchDetails = $(element);
+      const title = matchDetails.find(".cb-col.cb-col-100.cb-lv-scrs-crd.cb-pos-rel").text().trim();
+      const date = matchDetails.find(".cb-col.cb-col-25.cb-lv-scrs-gray").text().trim();
+
+      if (title && date) {
+        matches.push({ title, date });
+      }
+    });
+
+    return matches;
+  } catch (error) {
+    console.error("Error fetching upcoming matches:", error.message);
+    return [];
+  }
+};
+
+// 📌 API Routes
+app.get("/", (req, res) => {
+  res.send("Welcome to CricBuddy Live Match API! Use /live-matches or /upcoming-matches to get match data.");
 });
 
+app.get("/live-matches", async (req, res) => {
+  const matches = await fetchLiveMatches();
+  res.json(matches);
+});
+
+app.get("/upcoming-matches", async (req, res) => {
+  const matches = await fetchUpcomingMatches();
+  res.json(matches);
+});
+
+// Start Server
 app.listen(PORT, () => console.log(`✅ Server running on port ${PORT}`));
